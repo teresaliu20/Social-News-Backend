@@ -9,6 +9,7 @@ python:
 install:
   - "pip install pipenv"
   - "pipenv install --dev"
+  - "pipenv install -r requirements/local.txt"
 before_script:
   - psql -c 'CREATE DATABASE paper;' -U postgres
   - psql -c 'CREATE USER root;' -U postgres

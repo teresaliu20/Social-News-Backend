@@ -19,3 +19,9 @@ class Following(models.Model):
     created = models.DateTimeField(auto_now_add=True, editable=False)
     creator = models.ForeignKey(User, related_name="friendship_creator_set", on_delete=models.CASCADE)
     following = models.ForeignKey(User, related_name="friend_following_set", on_delete=models.CASCADE)
+
+
+class Bookmark(models.Model):
+    created = models.DateTimeField(auto_now_add=True, editable=False)
+    creator = models.ForeignKey(User, on_delete=models.CASCADE)
+    link = models.CharField(blank=True, max_length=255)

@@ -26,5 +26,10 @@ https://cookiecutter-django.readthedocs.io
 1. Run `brew install postgres`
 2. Examine database by running `psql` to open up to postgres terminal
 
+## Migrations
+1. When editing the models, you must create a migration file and then run migrate to update the postgres database
+2. After editing, run `python manage.py makemigrations` and fix any errors
+3. Run `python manage.py migrate` to migrate
+
 ## Running tests
 1. Run `pytest`

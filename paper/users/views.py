@@ -200,16 +200,21 @@ class Login(APIView):
             username = request.data['username']
             password = request.data['password']
             auth_user = authenticate(request, username=username, password=password)
-        except Exception:
+        except Exception as e:
+            print(e.detail)
             return error_resp
 
         if auth_user is not None:
-            login(request, auth_user)
-            serialized_user = UserSerializer(auth_user, context=serializer_context)
-
-            return Response(serialized_user.data)
+            try:
+                login(request, auth_user)
+                serialized_user = UserSerializer(auth_user, context=serializer_context)
+                return Response(serialized_user.data, status=200)
+            except Exception as e:
+                print(e.detail)
+                return error_resp
         else:
             return error_resp
+
 
 login_view = Login.as_view()
 

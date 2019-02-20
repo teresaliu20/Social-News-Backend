@@ -12,11 +12,17 @@ from paper.users.views import (
     user_bookmarks_view,
     users_feed_view,
     users_following_view,
-    users_social_feed_view
+    users_social_feed_view,
+    signup_view,
+    login_view,
+    logout_view
 )
 
 app_name = "users"
 urlpatterns = [
+    path("login", view=login_view, name='userslogin'),
+    path("signup", view=signup_view, name='usersignup'),
+    path("logout", view=logout_view, name='userslogout'),
     path("", view=user_list_view, name="list"),
     path("~redirect/", view=user_redirect_view, name="redirect"),
     path("~update/", view=user_update_view, name="update"),

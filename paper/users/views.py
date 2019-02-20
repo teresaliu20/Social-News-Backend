@@ -1,4 +1,4 @@
-from django.contrib.auth import get_user_model
+from django.contrib.auth import get_user_model, login, logout, authenticate
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.urls import reverse
 from rest_framework.views import APIView
@@ -7,9 +7,8 @@ from rest_framework.response import Response
 from .models import Bookmark, FeedSubscription, Following
 from .serializers import BookmarkSerializer, UserSerializer, FeedSubscriptionSerializer, FollowingSerializer
 from django.core import serializers
-import json
-from pprint import pprint
 from django.core.serializers.json import DjangoJSONEncoder
+import json
 
 User = get_user_model()
 
@@ -186,3 +185,68 @@ class UserSocialFeedView(APIView):
         return Response(socialFeed)
 
 users_social_feed_view = UserSocialFeedView.as_view()
+
+
+class Login(APIView):
+    """
+    POST: Log in a user based on the username and password submitted
+    """
+    def post(self, request, format=None):
+        error_resp = Response({'detail': 'Failed to login user'}, status=400)
+        serializer_context = {
+            'request': request,
+        }
+        try:
+            username = request.data['username']
+            password = request.data['password']
+            auth_user = authenticate(request, username=username, password=password)
+        except Exception:
+            return error_resp
+
+        if auth_user is not None:
+            login(request, auth_user)
+            serialized_user = UserSerializer(auth_user, context=serializer_context)
+
+            return Response(serialized_user.data)
+        else:
+            return error_resp
+
+login_view = Login.as_view()
+
+
+class Logout(APIView):
+    """
+    POST: Log out a user
+    """
+    def post(self, request, format=None):
+        try:
+            logout(request)
+            return Response({'detail': 'Logout successful'})
+        except Exception:
+            return Response({'detail': 'Server error occured on logout'})
+
+logout_view = Logout.as_view()
+
+
+class SignUp(APIView):
+    def post(self, request, format=None):
+        try:
+            username = request.data['username']
+            email = request.data['email']
+            password = request.data['password']
+
+            user = User.objects.create_user(username, email, password)
+
+            user.first_name = request.data['firstname']
+            user.last_name = request.data['lastname']
+
+            user.save()
+
+            serialized_user = UserSerializer(user)
+
+            return Response(serialized_user.data)
+        except Exception as e:
+            print (e.message)
+            return Response({'detail': 'Server error occured on signup'})
+
+signup_view = SignUp.as_view()

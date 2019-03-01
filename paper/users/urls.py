@@ -10,9 +10,10 @@ from paper.users.views import (
     bookmarks_list_view,
     users_list_view,
     user_bookmarks_view,
-    users_feed_view,
     users_following_view,
     users_social_feed_view,
+    users_collections_view,
+    collection_view,
     signup_view,
     login_view,
     logout_view
@@ -30,9 +31,10 @@ urlpatterns = [
     path("all-bookmarks", view=bookmarks_list_view, name='bookmarks'),
     path("show-all", view=users_list_view, name='usersall'),
     path("<int:pk>/bookmarks", view=user_bookmarks_view, name='userbookmarks'),
-    path("<int:pk>/explore-feed", view=users_feed_view, name='userexplorefeed'),
     path("<int:pk>/following", view=users_following_view, name='userfollowing'),
-    path("<int:pk>/social-feed", view=users_social_feed_view, name='usersocialfeed')
+    path("<int:pk>/social-feed", view=users_social_feed_view, name='usersocialfeed'),
+    path("<int:pk>/collections", view=users_collections_view, name='usercollections'),
+    path("collection/<int:pk>", view=collection_view, name='collectioninfo')
 ]
 
 urlpatterns = format_suffix_patterns(urlpatterns)

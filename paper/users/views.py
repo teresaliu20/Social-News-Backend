@@ -4,8 +4,8 @@ from django.urls import reverse
 from rest_framework.views import APIView
 from django.views.generic import DetailView, ListView, RedirectView, UpdateView
 from rest_framework.response import Response
-from .models import Bookmark, FeedSubscription, Following
-from .serializers import BookmarkSerializer, UserSerializer, FeedSubscriptionSerializer, FollowingSerializer
+from .models import Link, Following, Collection
+from .serializers import LinkSerializer, UserSerializer, FollowingSerializer, CollectionSerializer
 from django.core import serializers
 from django.core.serializers.json import DjangoJSONEncoder
 import json
@@ -59,13 +59,13 @@ class UserRedirectView(LoginRequiredMixin, RedirectView):
 user_redirect_view = UserRedirectView.as_view()
 
 # Returns all bookmarks in database
-class BookmarksListView(APIView):
+class LinksListView(APIView):
     def get(self, request, format=None):
-        bookmarks = Bookmark.objects.all()
-        serializer = BookmarkSerializer(bookmarks, many=True)
+        bookmarks = Link.objects.all()
+        serializer = LinkSerializer(bookmarks, many=True)
         return Response(serializer.data)
 
-bookmarks_list_view = BookmarksListView.as_view()
+bookmarks_list_view = LinksListView.as_view()
 
 # Returns all users in database
 class UsersListView(APIView):
@@ -77,7 +77,7 @@ class UsersListView(APIView):
 users_list_view = UsersListView.as_view()
 
 # Returns all bookmarks of a specific user
-class UserBookmarksView(APIView):
+class UserLinksView(APIView):
     def get_object(self, pk):
         try:
             return User.objects.get(pk=pk)
@@ -95,42 +95,14 @@ class UserBookmarksView(APIView):
         bLink = self.request.data.get('link')
 
         if user and bLink:
-            b = Bookmark(link=bLink, creator=user)
+            b = Link(link=bLink, creator=user)
             b.save()
-            serializer = BookmarkSerializer(b)
+            serializer = LinkSerializer(b)
             return Response(serializer.data)
         else:
             return Response('Error: Unable to find either user or POST link data', status=HTTP_400_BAD_REQUEST)
 
-user_bookmarks_view = UserBookmarksView.as_view()
-
-# Returns all rss links that user is subscribed to
-class UserFeedView(APIView):
-    def get_object(self, pk):
-        try:
-            return User.objects.get(pk=pk)
-        except User.DoesNotExist:
-            raise Http404
-
-    def get(self, request, pk, format=None):
-        user = self.get_object(pk)
-        feed = user.feedsubscription_set.all()
-        data = serializers.serialize('json', list(feed), fields=('created', 'subscriber','rss_link'))
-        return Response(json.loads(data))
-
-    def post(self, request, pk, format=None):
-        user = self.get_object(pk)
-        fLink = self.request.data.get('link')
-
-        if user and fLink:
-            subscription = FeedSubscription(subscriber=user, rss_link=fLink)
-            subscription.save()
-            serializer = FeedSubscriptionSerializer(subscription)
-            return Response(serializer.data)
-        else:
-            return Response('Error: Unable to find either user or POST link data', status=HTTP_400_BAD_REQUEST)
-
-users_feed_view = UserFeedView.as_view()
+user_bookmarks_view = UserLinksView.as_view()
 
 # Returns all the people a specific user is following
 class UserFollowingView(APIView):
@@ -185,6 +157,46 @@ class UserSocialFeedView(APIView):
         return Response(socialFeed)
 
 users_social_feed_view = UserSocialFeedView.as_view()
+
+
+# Returns the collections that a specific user has made
+class UserCollectionsView(APIView):
+    def get_object(self, pk):
+        try:
+            return User.objects.get(pk=pk)
+        except User.DoesNotExist:
+            raise Http404
+
+    def get(self, request, pk, format=None):
+        user = self.get_object(pk)
+        collections = Collection.objects.filter(creator=user)
+        print(collections)
+        data = json.loads(serializers.serialize('json', list(collections), fields=('created', 'creator','name')))
+
+        return Response(data)
+
+users_collections_view = UserCollectionsView.as_view()
+
+# Returns collection information based on id
+class CollectionView(APIView):
+    def get_object(self, pk):
+        try:
+            return Collection.objects.get(pk=pk)
+        except Collection.DoesNotExist:
+            raise Http404
+
+    def get(self, request, pk, format=None):
+        collection = self.get_object(pk)
+        cs = CollectionSerializer(collection)
+        links = Link.objects.filter(collection=collection)
+
+        data = {}
+        data["collectionInfo"] = cs.data
+        data["Links"] = json.loads(serializers.serialize('json', list(links), data=('created', 'creator','url')))
+
+        return Response(data)
+
+collection_view = CollectionView.as_view()
 
 
 class Login(APIView):

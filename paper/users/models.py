@@ -10,16 +10,12 @@ class User(AbstractUser):
     # around the globe.
     name = models.CharField(_("Name of User"), blank=True, max_length=255)
     bio = models.CharField(_("Bio of User"), max_length=280, blank=True, null=True)
+    linksProposed = models.IntegerField(default=0)
+    linksAccepted = models.IntegerField(default=0)
 
     def get_absolute_url(self):
         return reverse("users:detail", kwargs={"username": self.username})
-
-
-class FeedSubscription(models.Model):
-    created = models.DateTimeField(auto_now_add=True, editable=False)
-    subscriber = models.ForeignKey(User, on_delete=models.CASCADE)
-    rss_link = models.CharField(blank=True, max_length=255)
-
+        
 
 class Following(models.Model):
     created = models.DateTimeField(auto_now_add=True, editable=False)
@@ -27,7 +23,17 @@ class Following(models.Model):
     following = models.ForeignKey(User, related_name="friend_following_set", on_delete=models.CASCADE)
 
 
-class Bookmark(models.Model):
+class Collection(models.Model):
     created = models.DateTimeField(auto_now_add=True, editable=False)
     creator = models.ForeignKey(User, on_delete=models.CASCADE)
-    link = models.CharField(blank=True, max_length=255)
+    name = models.CharField(blank=True, max_length=255)
+    description = models.CharField(blank=True, max_length=500)
+
+    def __str__(self):  # what will be displayed in the admin
+        return "Name: " + self.name + ", Id: " + str(self.id)
+
+class Link(models.Model):
+    created = models.DateTimeField(auto_now_add=True, editable=False)
+    creator = models.ForeignKey(User, on_delete=models.CASCADE)
+    url = models.CharField(blank=True, max_length=255)
+    collection = models.ForeignKey(Collection, blank=True, null=True, related_name="collection_set", on_delete=models.CASCADE)

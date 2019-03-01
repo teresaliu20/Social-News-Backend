@@ -1,7 +1,7 @@
 from rest_framework import serializers
 from django.forms.models import model_to_dict
 from django.contrib.auth.models import User
-from .models import User, FeedSubscription, Following, Link, Collection
+from .models import User, Following, Link, Collection
 
 class UserSerializer(serializers.ModelSerializer):
     class Meta:
@@ -11,7 +11,7 @@ class UserSerializer(serializers.ModelSerializer):
         extra_kwargs = {
             'password': {'write_only': True}
         }
-        
+
 
 class FollowingSerializer(serializers.ModelSerializer):
     class Meta:

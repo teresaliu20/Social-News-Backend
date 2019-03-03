@@ -1,7 +1,7 @@
 from rest_framework import serializers
 from django.forms.models import model_to_dict
 from django.contrib.auth.models import User
-from .models import User, FeedSubscription, Following, Bookmark
+from .models import User, Following, Link, Collection, CollectionRelationship
 
 class UserSerializer(serializers.ModelSerializer):
     class Meta:
@@ -13,19 +13,25 @@ class UserSerializer(serializers.ModelSerializer):
         }
 
 
-class FeedSubscriptionSerializer(serializers.ModelSerializer):
-    class Meta:
-        model = FeedSubscription
-        fields = '__all__'
-
-
 class FollowingSerializer(serializers.ModelSerializer):
     class Meta:
         model = Following
         fields = '__all__'
 
 
-class BookmarkSerializer(serializers.ModelSerializer):
+class LinkSerializer(serializers.ModelSerializer):
     class Meta:
-        model = Bookmark
+        model = Link
+        fields = '__all__'
+
+
+class CollectionSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Collection
+        fields = '__all__'
+
+
+class CollectionRelationshipSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = CollectionRelationship
         fields = '__all__'

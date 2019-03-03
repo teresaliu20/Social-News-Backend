@@ -2,9 +2,10 @@ from django.contrib.auth import get_user_model, login, logout, authenticate
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.urls import reverse
 from rest_framework.views import APIView
+from rest_framework.status import HTTP_400_BAD_REQUEST, HTTP_200_OK, HTTP_204_NO_CONTENT, HTTP_500_INTERNAL_SERVER_ERROR
 from django.views.generic import DetailView, ListView, RedirectView, UpdateView
 from rest_framework.response import Response
-from .models import Link, Following, Collection
+from .models import Link, Following, Collection, CollectionRelationship
 from .serializers import LinkSerializer, UserSerializer, FollowingSerializer, CollectionSerializer
 from django.core import serializers
 from django.core.serializers.json import DjangoJSONEncoder
@@ -158,7 +159,6 @@ class UserSocialFeedView(APIView):
 
 users_social_feed_view = UserSocialFeedView.as_view()
 
-
 # Returns the collections that a specific user has made
 class UserCollectionsView(APIView):
     def get_object(self, pk):
@@ -198,6 +198,38 @@ class CollectionView(APIView):
 
 collection_view = CollectionView.as_view()
 
+# Returns all collections that are connected to the one requested based on id
+class CollectionConnectedView(APIView):
+    def get_object(self, pk):
+        try:
+            return Collection.objects.get(pk=pk)
+        except Collection.DoesNotExist:
+            raise Http404
+
+    def get(self, request, pk, format=None):
+
+        collection = self.get_object(pk)
+
+        connections = CollectionRelationship.objects.filter(start=collection)
+
+        data = []
+        for c in connections:
+            currConnection = c.end
+
+            cs = CollectionSerializer(currConnection)
+            links = Link.objects.filter(collection=currConnection)
+
+            subCollection = {}
+            subCollection["collectionInfo"] = cs.data
+            subCollection["links"] = json.loads(serializers.serialize('json', list(links), data=('created', 'creator','url')))
+            subCollection["approved"] = c.approved
+
+            data.append(subCollection)
+
+        return Response(data)
+
+collection_connected_view = CollectionConnectedView.as_view()
+
 
 class Login(APIView):
     """
@@ -226,7 +258,6 @@ class Login(APIView):
                 return error_resp
         else:
             return error_resp
-
 
 login_view = Login.as_view()
 

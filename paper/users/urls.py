@@ -14,6 +14,7 @@ from paper.users.views import (
     users_social_feed_view,
     users_collections_view,
     collection_view,
+    collection_connected_view,
     signup_view,
     login_view,
     logout_view
@@ -34,6 +35,7 @@ urlpatterns = [
     path("<int:pk>/following", view=users_following_view, name='userfollowing'),
     path("<int:pk>/social-feed", view=users_social_feed_view, name='usersocialfeed'),
     path("<int:pk>/collections", view=users_collections_view, name='usercollections'),
+    path("collection/<int:pk>/connected", view=collection_connected_view, name='fromtoconnections'),
     path("collection/<int:pk>", view=collection_view, name='collectioninfo')
 ]
 

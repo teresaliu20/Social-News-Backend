@@ -2,6 +2,7 @@ from django.contrib.auth.models import AbstractUser
 from django.db import models
 from django.urls import reverse
 from django.utils.translation import ugettext_lazy as _
+from .enums import Relationship
 
 
 class User(AbstractUser):
@@ -15,7 +16,7 @@ class User(AbstractUser):
 
     def get_absolute_url(self):
         return reverse("users:detail", kwargs={"username": self.username})
-        
+
 
 class Following(models.Model):
     created = models.DateTimeField(auto_now_add=True, editable=False)
@@ -25,15 +26,24 @@ class Following(models.Model):
 
 class Collection(models.Model):
     created = models.DateTimeField(auto_now_add=True, editable=False)
-    creator = models.ForeignKey(User, on_delete=models.CASCADE)
+    owner = models.ForeignKey(User, on_delete=models.CASCADE)
     name = models.CharField(blank=True, max_length=255)
     description = models.CharField(blank=True, max_length=500)
 
     def __str__(self):  # what will be displayed in the admin
         return "Name: " + self.name + ", Id: " + str(self.id)
 
+
 class Link(models.Model):
     created = models.DateTimeField(auto_now_add=True, editable=False)
     creator = models.ForeignKey(User, on_delete=models.CASCADE)
     url = models.CharField(blank=True, max_length=255)
     collection = models.ForeignKey(Collection, blank=True, null=True, related_name="collection_set", on_delete=models.CASCADE)
+
+
+class CollectionRelationship(models.Model):
+    created = models.DateTimeField(auto_now_add=True, editable=False)
+    start = models.ForeignKey(Collection, related_name="origin", blank=True, null=True, on_delete=models.CASCADE)
+    end = models.ForeignKey(Collection, related_name="endpoint", blank=True, null=True, on_delete=models.CASCADE)
+    relationship = models.CharField(blank=True, max_length=10, choices=[(tag.name, tag.value) for tag in Relationship])
+    approved = models.BooleanField(default=False)

@@ -2,7 +2,7 @@ from django.contrib import admin
 from django.contrib.auth import admin as auth_admin
 from django.contrib.auth import get_user_model
 from paper.users.forms import UserChangeForm, UserCreationForm
-from .models import Following, Collection, Link
+from .models import Following, Collection, Link, CollectionRelationship
 
 User = get_user_model()
 
@@ -26,9 +26,14 @@ class LinkAdmin(admin.ModelAdmin):
 
 
 class CollectionAdmin(admin.ModelAdmin):
-    list_display = ('id', 'created', 'creator', 'name')
+    list_display = ('id', 'created', 'owner', 'name')
+
+
+class CollectionRelationshipAdmin(admin.ModelAdmin):
+    list_display = ('id', 'created', 'start', 'end', 'relationship', 'approved')
 
 
 admin.site.register(Following, FollowingAdmin)
 admin.site.register(Link, LinkAdmin)
 admin.site.register(Collection, CollectionAdmin)
+admin.site.register(CollectionRelationship, CollectionRelationshipAdmin)

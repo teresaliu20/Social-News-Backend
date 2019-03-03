@@ -45,5 +45,5 @@ class CollectionRelationship(models.Model):
     created = models.DateTimeField(auto_now_add=True, editable=False)
     start = models.ForeignKey(Collection, related_name="origin", blank=True, null=True, on_delete=models.CASCADE)
     end = models.ForeignKey(Collection, related_name="endpoint", blank=True, null=True, on_delete=models.CASCADE)
-    relationship = models.CharField(blank=True, max_length=10, choices=[(tag.name, tag.value) for tag in Relationship])
+    relationship = models.CharField(blank=True, max_length=30, choices=[(tag.name, tag.value) for tag in Relationship])
     approved = models.BooleanField(default=False)

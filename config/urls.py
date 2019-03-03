@@ -16,7 +16,7 @@ urlpatterns = [
     path(settings.ADMIN_URL, admin.site.urls),
     # User management
     path(
-        "users/",
+        "api/",
         include("paper.users.urls", namespace="users"),
     ),
     path("accounts/", include("allauth.urls")),

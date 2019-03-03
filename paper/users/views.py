@@ -1,6 +1,7 @@
 from django.contrib.auth import get_user_model, login, logout, authenticate
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.urls import reverse
+from django.http import JsonResponse
 from rest_framework.views import APIView
 from rest_framework.status import HTTP_400_BAD_REQUEST, HTTP_200_OK, HTTP_204_NO_CONTENT, HTTP_500_INTERNAL_SERVER_ERROR
 from django.views.generic import DetailView, ListView, RedirectView, UpdateView
@@ -177,11 +178,9 @@ class UserCollectionsView(APIView):
 
     def get(self, request, pk, format=None):
         user = self.get_object(pk)
-        collections = Collection.objects.filter(owner=user)
-        print(collections)
-        data = json.loads(serializers.serialize('json', list(collections), fields=('created', 'owner','name')))
+        collections = Collection.objects.filter(owner=user).values('created', 'owner', 'name', 'description', 'id')
 
-        return Response(data)
+        return Response({'collections': list(collections)})
 
 users_collections_view = UserCollectionsView.as_view()
 
@@ -196,11 +195,11 @@ class CollectionView(APIView):
     def get(self, request, pk, format=None):
         collection = self.get_object(pk)
         cs = CollectionSerializer(collection)
-        links = Link.objects.filter(collection=collection)
+        links = Link.objects.filter(collection=collection).values('created', 'creator', 'url', 'collection')
 
         data = {}
         data["collectionInfo"] = cs.data
-        data["Links"] = json.loads(serializers.serialize('json', list(links), fields=('created', 'creator','url')))
+        data["links"] = list(links)
 
         return Response(data)
 

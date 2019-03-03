@@ -68,6 +68,7 @@ THIRD_PARTY_APPS = [
     'allauth.account',
     'allauth.socialaccount',
     'rest_framework',
+    'corsheaders',
 ]
 LOCAL_APPS = [
     'paper.users.apps.UsersAppConfig',
@@ -135,6 +136,8 @@ MIDDLEWARE = [
     'django.contrib.auth.middleware.AuthenticationMiddleware',
     'django.contrib.messages.middleware.MessageMiddleware',
     'django.middleware.clickjacking.XFrameOptionsMiddleware',
+    'corsheaders.middleware.CorsMiddleware',
+    'django.middleware.common.CommonMiddleware',
 ]
 
 # STATIC
@@ -249,8 +252,12 @@ SOCIALACCOUNT_ADAPTER = 'paper.users.adapters.SocialAccountAdapter'
 
 # Your stuff...
 # ------------------------------------------------------------------------------
+# CORS
+# ------------------------------------------------------------------------------
 CORS_ORIGIN_WHITELIST = (
     '127.0.0.1:3000',
+    '127.0.0.1:3100',
     'localhost:3000',
+    'localhost:3100',
     'localhost:19002'
 )

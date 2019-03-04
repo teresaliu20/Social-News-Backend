@@ -123,33 +123,37 @@ class FindUsersView(APIView):
 
 find_users_view = FindUsersView.as_view()
 
-# Returns all bookmarks of a specific user
-class UserLinksView(APIView):
-    def get_object(self, pk):
-        try:
-            return User.objects.get(pk=pk)
-        except User.DoesNotExist:
-            raise Http404
+# Returns all links in user's reading list, adds new link into reading list, and deletes link from reading list
+class UserReadingListView(APIView):
 
     def get(self, request, pk, format=None):
-        user = self.get_object(pk)
-        bookmarks = user.bookmark_set.all()
-        data = serializers.serialize('json', list(bookmarks), fields=('created', 'creator','link'))
-        return Response(json.loads(data))
+        user_filter = Q(owner_id=pk)
+        reading_list_filter = Q(inReadingList=True)
 
-    def post(self, request, pk, format=None):
-        user = self.get_object(pk)
-        bLink = self.request.data.get('link')
+        reading_list = Link.objects.filter(user_filter, reading_list_filter).values('id', 'created', 'owner', 'url', 'collection')
 
-        if user and bLink:
-            b = Link(url=bLink, creator=user)
-            b.save()
-            serializer = LinkSerializer(b)
-            return Response(serializer.data)
-        else:
-            return Response('Error: Unable to find either user or POST link data', status=HTTP_400_BAD_REQUEST)
+        return Response(list(reading_list))
 
-user_bookmarks_view = UserLinksView.as_view()
+    def post(self, request, format=None):
+        user_id = request.data['user_id']
+        url = request.data['url']
+
+        owner = User.objects.get(pk=user_id)
+
+        readingLink = Link(owner=owner, url=url, inReadingList=True)
+
+        readingLink.save()
+
+        return Response(LinkSerializer(readingLink).data)
+
+    def delete(self, request, format=None):
+        link_id = request.data['link_id']
+
+        Link.objects.get(pk=link_id).delete()
+
+        return Response(status=HTTP_200_OK)
+
+user_reading_list_view = UserReadingListView.as_view()
 
 # Returns all the people a specific user is following
 class UserFollowingView(APIView):
@@ -181,30 +185,6 @@ class UserFollowingView(APIView):
 
 users_following_view = UserFollowingView.as_view()
 
-# Returns the social feed of a user: all bookmarks of people you are following
-class UserSocialFeedView(APIView):
-    def get_object(self, pk):
-        try:
-            return User.objects.get(pk=pk)
-        except User.DoesNotExist:
-            raise Http404
-
-    def get(self, request, pk, format=None):
-        user = self.get_object(pk)
-        following = user.friendship_creator_set.all()
-        data = json.loads(serializers.serialize('json', list(following), fields=('created', 'creator','following')))
-
-        socialFeed = []
-
-        for u in data:
-            followingUser = User.objects.get(pk=u["fields"]["following"])
-            bookmarks = followingUser.bookmark_set.all()
-            socialFeed += json.loads(serializers.serialize('json', list(bookmarks), fields=('created', 'creator','link')))
-
-        return Response(socialFeed)
-
-users_social_feed_view = UserSocialFeedView.as_view()
-
 # Returns the collections that a specific user has made
 class UserCollectionsView(APIView):
     def get_object(self, pk):
@@ -232,7 +212,7 @@ class CollectionView(APIView):
     def get(self, request, pk, format=None):
         collection = self.get_object(pk)
         cs = CollectionSerializer(collection)
-        links = Link.objects.filter(collection=collection).values('created', 'creator', 'url', 'collection')
+        links = Link.objects.filter(collection=collection).values('created', 'owner', 'url', 'collection')
 
         data = {}
         data["collectionInfo"] = cs.data
@@ -257,7 +237,7 @@ class CollectionView(APIView):
         links = []
         if urls:
             for url in urls:
-                tempLink = Link(creator=owner, url=url, collection=collection)
+                tempLink = Link(owner=owner, url=url, collection=collection)
                 print("hi" + url)
                 tempLink.save()
                 links.append(LinkSerializer(tempLink).data)
@@ -306,15 +286,15 @@ class EditCollectionView(APIView):
         links = []
         if urls:
             for url in urls:
-                tempLink = Link.objects.filter(creator__id=owner_id, collection__id=collection_id, url=url)
+                tempLink = Link.objects.filter(owner__id=owner_id, collection__id=collection_id, url=url)
                 if not tempLink:
                     print("link does not exist yet. Creating new link: "  + url)
-                    tempLink = Link(creator=owner, url=url, collection=collection)
+                    tempLink = Link(owner=owner, url=url, collection=collection)
                     tempLink.save()
                     links.append(LinkSerializer(tempLink).data)
                 else:
                     print("link already exists: " + url)
-                    links += tempLink.values('id', 'created', 'creator', 'url', 'collection')
+                    links += tempLink.values('id', 'created', 'owner', 'url', 'collection')
 
         data["links"] = links
 

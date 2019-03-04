@@ -1,5 +1,6 @@
 from django.contrib.auth import get_user_model, login, logout, authenticate
 from django.contrib.auth.mixins import LoginRequiredMixin
+from django.db.models import Q
 from django.urls import reverse
 from django.http import JsonResponse
 from rest_framework.views import APIView
@@ -61,30 +62,66 @@ class UserRedirectView(LoginRequiredMixin, RedirectView):
 user_redirect_view = UserRedirectView.as_view()
 
 class UserInformationView(APIView):
-    def get(self, request, pk, format=None):
-        user = User.objects.get(pk=pk)
+    def post(self, request, format=None):
+        user_id = request.data["user_id"]
+        isLoggedInUser = request.data["isLoggedInUser"]
+
+        user = User.objects.get(pk=user_id)
         serializer = UserSerializer(user)
-        return Response(serializer.data)
+        data = serializer.data
+
+        if not isLoggedInUser:
+            data.pop('email', None)
+            data.pop('is_superuser', None)
+            data.pop('groups', None)
+            data.pop('user_permissions', None)
+            data.pop('is_staff', None)
+
+        return Response(data)
 
 user_information_view = UserInformationView.as_view()
 
-# Returns all bookmarks in database
-class LinksListView(APIView):
-    def get(self, request, format=None):
-        bookmarks = Link.objects.all()
-        serializer = LinkSerializer(bookmarks, many=True)
-        return Response(serializer.data)
+class EditUserView(APIView):
+    def post(self, request, format=None):
+        user_id = request.data["user_id"]
+        username = request.data['username']
+        email = request.data['email']
+        first_name = request.data['first_name']
+        last_name = request.data['last_name']
+        name = request.data['name']
+        bio = request.data['bio']
 
-bookmarks_list_view = LinksListView.as_view()
+        user = User.objects.get(pk=user_id)
+        user.username = username
+        user.email = email
+        user.first_name = first_name
+        user.last_name = last_name
+        user.bio = bio
+        user.name = name
+
+        user.save()
+
+        return Response(UserSerializer(user).data)
+
+edit_user_view = EditUserView.as_view()
 
 # Returns all users in database
-class UsersListView(APIView):
-    def get(self, request, format=None):
-        users = User.objects.all()
-        serializer = UserSerializer(users, many=True)
-        return Response(serializer.data)
+class FindUsersView(APIView):
+    def post(self, request, format=None):
+        query = request.data["query"]
 
-users_list_view = UsersListView.as_view()
+        username_query = Q(username__istartswith=query)
+        first_name_query = Q(first_name__istartswith=query)
+        name_query = Q(name__istartswith=query)
+        email_query = Q(email__istartswith=query)
+
+        search = User.objects.filter(username_query | first_name_query | name_query | email_query).values('id', 'username', 'first_name', 'last_name', 'email')
+
+        data = list(search)
+
+        return Response(data)
+
+find_users_view = FindUsersView.as_view()
 
 # Returns all bookmarks of a specific user
 class UserLinksView(APIView):
@@ -207,20 +244,17 @@ class CollectionView(APIView):
         name = request.data['name']
         owner_id = request.data['user_id']
         description = request.data['description']
-
         urls = request.data['links']
-
-        data = {}
 
         owner = User.objects.get(pk=owner_id)
 
         collection = Collection(owner=owner, name=name, description=description)
         collection.save()
 
+        data = {}
         data["collectionInfo"] = CollectionSerializer(collection).data
-        print(data["collectionInfo"])
-        links = []
 
+        links = []
         if urls:
             for url in urls:
                 tempLink = Link(creator=owner, url=url, collection=collection)
@@ -243,6 +277,51 @@ class CollectionView(APIView):
 
 collection_view = CollectionView.as_view()
 
+# Returns collection information based on id
+class EditCollectionView(APIView):
+    def get_object(self, pk):
+        try:
+            return Collection.objects.get(pk=pk)
+        except Collection.DoesNotExist:
+            raise Http404
+
+    def post(self, request, format=None):
+        collection_id = request.data['collection_id']
+        name = request.data['name']
+        owner_id = request.data['user_id']
+        description = request.data['description']
+        urls = request.data['links']
+
+        collection = Collection.objects.get(pk=collection_id)
+        collection.name = name
+        collection.description = description
+
+        collection.save()
+
+        data = {}
+        data["collectionInfo"] = CollectionSerializer(collection).data
+
+        owner = User.objects.get(pk=owner_id)
+
+        links = []
+        if urls:
+            for url in urls:
+                tempLink = Link.objects.filter(creator__id=owner_id, collection__id=collection_id, url=url)
+                if not tempLink:
+                    print("link does not exist yet. Creating new link: "  + url)
+                    tempLink = Link(creator=owner, url=url, collection=collection)
+                    tempLink.save()
+                    links.append(LinkSerializer(tempLink).data)
+                else:
+                    print("link already exists: " + url)
+                    links += tempLink.values('id', 'created', 'creator', 'url', 'collection')
+
+        data["links"] = links
+
+        return Response(data)
+
+edit_collection_view = EditCollectionView.as_view()
+
 # Returns all collections that are connected to the one requested based on id
 class CollectionConnectedView(APIView):
     def get_object(self, pk):
@@ -261,11 +340,9 @@ class CollectionConnectedView(APIView):
             currConnection = c.end
 
             cs = CollectionSerializer(currConnection)
-            links = Link.objects.filter(collection=currConnection)
 
             subCollection = {}
             subCollection["collectionInfo"] = cs.data
-            subCollection["links"] = json.loads(serializers.serialize('json', list(links), data=('created', 'creator','url')))
             subCollection["approved"] = c.approved
             subCollection["relationship"] = c.relationship
 

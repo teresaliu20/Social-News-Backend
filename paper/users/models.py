@@ -28,7 +28,7 @@ class Collection(models.Model):
     created = models.DateTimeField(auto_now_add=True, editable=False)
     owner = models.ForeignKey(User, on_delete=models.CASCADE)
     name = models.CharField(blank=True, max_length=255)
-    description = models.CharField(blank=True, max_length=500)
+    description = models.CharField(blank=True, max_length=3000)
 
     def __str__(self):  # what will be displayed in the admin
         return "Name: " + self.name + ", Id: " + str(self.id)

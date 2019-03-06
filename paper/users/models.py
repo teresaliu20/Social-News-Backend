@@ -36,9 +36,10 @@ class Collection(models.Model):
 
 class Link(models.Model):
     created = models.DateTimeField(auto_now_add=True, editable=False)
-    creator = models.ForeignKey(User, on_delete=models.CASCADE)
+    owner = models.ForeignKey(User, on_delete=models.CASCADE)
     url = models.CharField(blank=True, max_length=255)
     collection = models.ForeignKey(Collection, blank=True, null=True, related_name="collection_set", on_delete=models.CASCADE)
+    inReadingList = models.BooleanField(default=False)
 
 
 class CollectionRelationship(models.Model):

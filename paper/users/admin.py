@@ -22,7 +22,7 @@ class FollowingAdmin(admin.ModelAdmin):
 
 
 class LinkAdmin(admin.ModelAdmin):
-    list_display = ('id', 'created', 'creator', 'collection')
+    list_display = ('id', 'created', 'owner', 'collection')
 
 
 class CollectionAdmin(admin.ModelAdmin):

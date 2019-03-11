@@ -5,6 +5,7 @@ name = "pypi"
 
 [packages]
 django-cors-headers = "*"
+django-s3-storage = "*"
 
 [dev-packages]
 

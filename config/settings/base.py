@@ -69,6 +69,7 @@ THIRD_PARTY_APPS = [
     'allauth.socialaccount',
     'rest_framework',
     'corsheaders',
+    'django_s3_storage',
 ]
 LOCAL_APPS = [
     'paper.users.apps.UsersAppConfig',
@@ -261,3 +262,11 @@ CORS_ORIGIN_WHITELIST = (
     'localhost:3100',
     'localhost:19002'
 )
+
+S3_BUCKET = "paper-static"
+
+STATICFILES_STORAGE = "django_s3_storage.storage.StaticS3Storage"
+
+AWS_S3_BUCKET_NAME_STATIC = S3_BUCKET
+
+STATIC_URL = "https://%s.s3.amazonaws.com/" % S3_BUCKET

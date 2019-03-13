@@ -32,8 +32,13 @@ Werkzeug = "==0.14.1"
 Sphinx = "==1.8.4"
 factory_boy = "==2.11.1"
 django_coverage_plugin = "==1.6.0"
-django-storages = "*"
+django-storages = {extras = ["boto3"],version = "==1.7.1"}
 boto3 = "*"
+raven = "==6.10.0"
+gunicorn = "==19.9.0"
+psycopg2 = "==2.7.4"
+django-anymail = {extras = ["mailgun"],version = "==5.0"}
+Collectfast = "==0.6.2"
 
 [dev-packages]
 

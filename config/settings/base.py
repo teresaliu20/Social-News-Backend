@@ -251,13 +251,3 @@ SOCIALACCOUNT_ADAPTER = 'paper.users.adapters.SocialAccountAdapter'
 
 
 # Your stuff...
-# ------------------------------------------------------------------------------
-# CORS
-# ------------------------------------------------------------------------------
-CORS_ORIGIN_WHITELIST = (
-    '127.0.0.1:3000',
-    '127.0.0.1:3100',
-    'localhost:3000',
-    'localhost:3100',
-    'localhost:19002'
-)

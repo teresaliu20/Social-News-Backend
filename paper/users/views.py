@@ -7,8 +7,8 @@ from rest_framework.views import APIView
 from rest_framework.status import HTTP_400_BAD_REQUEST, HTTP_200_OK, HTTP_204_NO_CONTENT, HTTP_500_INTERNAL_SERVER_ERROR
 from django.views.generic import DetailView, ListView, RedirectView, UpdateView
 from rest_framework.response import Response
-from .models import Link, Following, Collection, CollectionRelationship
-from .serializers import LinkSerializer, UserSerializer, FollowingSerializer, CollectionSerializer, CollectionRelationshipSerializer
+from .models import Link, Following, Collection, CollectionRelationship, Topic
+from .serializers import LinkSerializer, UserSerializer, FollowingSerializer, CollectionSerializer, CollectionRelationshipSerializer, TopicSerializer
 from django.core import serializers
 from django.core.serializers.json import DjangoJSONEncoder
 import json
@@ -81,6 +81,7 @@ class UserInformationView(APIView):
 
 user_information_view = UserInformationView.as_view()
 
+# Edit user profile
 class EditUserView(APIView):
     def post(self, request, format=None):
         user_id = request.data["user_id"]
@@ -105,8 +106,8 @@ class EditUserView(APIView):
 
 edit_user_view = EditUserView.as_view()
 
-# Returns all users in database
-class FindUsersView(APIView):
+# Returns users in database that match a prefix search of username, first name, full name, and email
+class SearchUsersView(APIView):
     def post(self, request, format=None):
         query = request.data["query"]
 
@@ -121,7 +122,20 @@ class FindUsersView(APIView):
 
         return Response(data)
 
-find_users_view = FindUsersView.as_view()
+search_users_view = SearchUsersView.as_view()
+
+# Returns collections in database that match a given name query
+class SearchCollectionsView(APIView):
+    def post(self, request, format=None):
+        query = request.data["query"]
+
+        search = Collection.objects.filter(name__istartswith=query).values('id', 'name', 'description')
+
+        data = list(search)
+
+        return Response({"collections" : data})
+
+search_collections_view = SearchCollectionsView.as_view()
 
 # Returns all links in user's reading list, adds new link into reading list, and deletes link from reading list
 class UserReadingListView(APIView):
@@ -201,6 +215,66 @@ class UserCollectionsView(APIView):
 
 users_collections_view = UserCollectionsView.as_view()
 
+
+class TopicView(APIView):
+    def post(self, request, format=None):
+        topic_name = request.data['topic_name']
+        collections = Topic.objects.filter(name__iexact=topic_name).values_list('collection', flat=True)
+
+        cList = []
+        for collection in collections:
+            cList += Collection.objects.filter(pk=collection).values('created', 'owner', 'name', 'description', 'id')
+
+        return Response({'collections': cList})
+
+    def delete(self, request, format=None):
+        topic_name = request.data['topic_name']
+
+        Topic.objects.filter(name=topic_name).delete()
+
+        return Response(status=HTTP_200_OK)
+
+topic_view = TopicView.as_view()
+
+
+class CreateTopicView(APIView):
+    def post(self, request, format=None):
+        topic_name = request.data['topic_name']
+        collection_id = request.data['collection_id']
+
+        collection = Collection.objects.get(pk=collection_id)
+
+        name_filter = Q(name=topic_name)
+        collection_filter = Q(collection=collection)
+
+        existSet = Topic.objects.filter(name_filter, collection_filter)
+
+        if not existSet:
+            print("Topic {} does not exist yet. Creating...".format(topic_name))
+            topic =  Topic(name=topic_name, collection=collection)
+            topic.save()
+            return Response(status=HTTP_200_OK)
+        else:
+            return Response({'Error': "Topic already exists for this collection!"}, status=HTTP_500_INTERNAL_SERVER_ERROR)
+
+create_topic_view =  CreateTopicView.as_view()
+
+
+class SearchTopicsView(APIView):
+    def post(self, request, format=None):
+        query = request.data['query']
+        return Response(searchTopic(query))
+
+search_topics_view =  SearchTopicsView.as_view()
+
+
+class AllTopicsView(APIView):
+    def get(self, request, format=None):
+        return Response(searchTopic(""))
+
+all_topics_view =  AllTopicsView.as_view()
+
+
 # Returns collection information based on id
 class CollectionView(APIView):
     def get_object(self, pk):
@@ -213,10 +287,12 @@ class CollectionView(APIView):
         collection = self.get_object(pk)
         cs = CollectionSerializer(collection)
         links = Link.objects.filter(collection=collection).values('created', 'owner', 'url', 'collection')
+        topics = Topic.objects.filter(collection=collection).values_list('name', flat=True)
 
         data = {}
         data["collectionInfo"] = cs.data
         data["links"] = list(links)
+        data["topics"] =  list(topics)
 
         return Response(data)
 
@@ -225,6 +301,7 @@ class CollectionView(APIView):
         owner_id = request.data['user_id']
         description = request.data['description']
         urls = request.data['links']
+        topics = request.data['topics']
 
         owner = User.objects.get(pk=owner_id)
 
@@ -235,6 +312,7 @@ class CollectionView(APIView):
         data["collectionInfo"] = CollectionSerializer(collection).data
 
         links = []
+        topicsRet = []
         if urls:
             for url in urls:
                 tempLink = Link(owner=owner, url=url, collection=collection)
@@ -242,7 +320,15 @@ class CollectionView(APIView):
                 tempLink.save()
                 links.append(LinkSerializer(tempLink).data)
 
+        if topics:
+            for topic in topics:
+                print("topic: {}".format(topic))
+                tempTopic = Topic(name=topic, collection=collection)
+                tempTopic.save()
+                topicsRet.append(TopicSerializer(tempTopic).data)
+
         data["links"] = links
+        data["topics"] = topicsRet
 
         print(data)
 
@@ -271,6 +357,7 @@ class EditCollectionView(APIView):
         owner_id = request.data['user_id']
         description = request.data['description']
         urls = request.data['links']
+        topics = request.data['topics']
 
         collection = Collection.objects.get(pk=collection_id)
         collection.name = name
@@ -283,20 +370,35 @@ class EditCollectionView(APIView):
 
         owner = User.objects.get(pk=owner_id)
 
+        # Delete all existing links from DB and re-add links to DB
+        tempLink = Link.objects.filter(owner__id=owner_id, collection__id=collection_id)
+        if tempLink:
+            print("Deleting {} from db...".format(tempLink.values()))
+            tempLink.delete()
+
         links = []
-        if urls:
-            for url in urls:
-                tempLink = Link.objects.filter(owner__id=owner_id, collection__id=collection_id, url=url)
-                if not tempLink:
-                    print("link does not exist yet. Creating new link: "  + url)
-                    tempLink = Link(owner=owner, url=url, collection=collection)
-                    tempLink.save()
-                    links.append(LinkSerializer(tempLink).data)
-                else:
-                    print("link already exists: " + url)
-                    links += tempLink.values('id', 'created', 'owner', 'url', 'collection')
+        # Re-add all links into DB
+        for url in urls:
+            print("Adding {} to db...".format(url))
+            newLink = Link(owner=owner, url=url, collection=collection)
+            newLink.save()
+            links.append(LinkSerializer(newLink).data)
+
+        # Delete all existing topics from DB and re-add topics to DB
+        tempTopics = Topic.objects.filter(collection=collection)
+        if tempTopics:
+            print("Deleting {} from db...".format(tempTopics.values()))
+            tempTopics.delete()
+        # Re-add all topics into DB
+        topicsRet = []
+        for topic in topics:
+            print("Adding topic {}".format(topic))
+            newTopic = Topic(name=topic, collection=collection)
+            newTopic.save()
+            topicsRet.append(TopicSerializer(newTopic).data)
 
         data["links"] = links
+        data["topics"] = topicsRet
 
         return Response(data)
 
@@ -432,3 +534,10 @@ class SignUp(APIView):
             return Response({'detail': 'Server error occured on signup'})
 
 signup_view = SignUp.as_view()
+
+# Should move to its own file — here for now
+def searchTopic(query):
+    if not query:
+        return Topic.objects.values_list('name', flat=True).distinct()
+
+    return Topic.objects.filter(name__istartswith=query).values_list('name', flat=True).distinct()

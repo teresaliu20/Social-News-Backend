@@ -1,7 +1,7 @@
 from rest_framework import serializers
 from django.forms.models import model_to_dict
 from django.contrib.auth.models import User
-from .models import User, Following, Link, Collection, CollectionRelationship
+from .models import User, Following, Link, Collection, CollectionRelationship, Topic
 
 class UserSerializer(serializers.ModelSerializer):
     class Meta:
@@ -34,4 +34,10 @@ class CollectionSerializer(serializers.ModelSerializer):
 class CollectionRelationshipSerializer(serializers.ModelSerializer):
     class Meta:
         model = CollectionRelationship
+        fields = '__all__'
+
+
+class TopicSerializer(serializers.ModelSerializer):
+    class Meta:
+        model = Topic
         fields = '__all__'

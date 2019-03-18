@@ -34,6 +34,12 @@ class Collection(models.Model):
         return "Name: " + self.name + ", Id: " + str(self.id)
 
 
+class Topic(models.Model):
+    created = models.DateTimeField(auto_now_add=True, editable=False)
+    name =  models.CharField(blank=True, max_length=255)
+    collection = models.ForeignKey(Collection, blank=True, null=True, related_name="tag_set", on_delete=models.CASCADE)
+
+
 class Link(models.Model):
     created = models.DateTimeField(auto_now_add=True, editable=False)
     owner = models.ForeignKey(User, on_delete=models.CASCADE)

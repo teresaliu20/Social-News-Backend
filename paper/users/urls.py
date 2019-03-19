@@ -10,9 +10,14 @@ from rest_framework.urlpatterns import format_suffix_patterns
 from paper.users.views import (
     user_information_view,
     edit_user_view,
-    find_users_view,
+    search_users_view,
+    search_collections_view,
     users_collections_view,
     user_reading_list_view,
+    topic_view,
+    create_topic_view,
+    search_topics_view,
+    all_topics_view,
     collection_view,
     edit_collection_view,
     collection_connected_view,
@@ -31,13 +36,18 @@ urlpatterns = [
     url(r'^users/(?P<pk>[0-9]+)/reading-list', user_reading_list_view, name='userreadinglist'),
     url(r'^users/reading-list', user_reading_list_view, name='userreadinglist'),
     url(r'^users/edit', edit_user_view, name='edituser'),
-    url(r'^users/find', find_users_view, name='edituser'),
+    url(r'^users/search', search_users_view, name='searchuser'),
     url(r'^users', user_information_view, name='userinformation'),
     url(r'^collections/(?P<pk>[0-9]+)/connected', collection_connected_view, name='fromtoconnections'),
     url(r'^collections/relationship', collection_relationship_view, name='collectioninfo'),
     url(r'^collections/edit', edit_collection_view, name='editcollection'),
     url(r'^collections/(?P<pk>[0-9]+)', collection_view, name='collectioninfo'),
-    url(r'^collections', collection_view, name='collectioninfo')
+    url(r'^collections/search', search_collections_view, name='searchcollections'),
+    url(r'^collections/create', collection_view, name='collectioninfo'),
+    url(r'^topics/search', search_topics_view, name='searchtopics'),
+    url(r'^topics/all', all_topics_view, name='alltopics'),
+    url(r'^topics/create', create_topic_view, name='alltopics'),
+    url(r'^topic', topic_view, name='topiccollections')
 ]
 
 urlpatterns = format_suffix_patterns(urlpatterns)

@@ -1,17 +1,17 @@
+import json
 from django.contrib.auth import get_user_model, login, logout, authenticate
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.db.models import Q
 from django.urls import reverse
-from django.http import JsonResponse
+from django.http import JsonResponse, Http404
+from django.core import serializers
+from django.core.serializers.json import DjangoJSONEncoder
+from django.views.generic import DetailView, ListView, RedirectView, UpdateView
 from rest_framework.views import APIView
 from rest_framework.status import HTTP_400_BAD_REQUEST, HTTP_200_OK, HTTP_204_NO_CONTENT, HTTP_500_INTERNAL_SERVER_ERROR
-from django.views.generic import DetailView, ListView, RedirectView, UpdateView
 from rest_framework.response import Response
 from .models import Link, Following, Collection, CollectionRelationship, Topic
 from .serializers import LinkSerializer, UserSerializer, FollowingSerializer, CollectionSerializer, CollectionRelationshipSerializer, TopicSerializer
-from django.core import serializers
-from django.core.serializers.json import DjangoJSONEncoder
-import json
 
 User = get_user_model()
 
@@ -175,12 +175,12 @@ class UserFollowingView(APIView):
         try:
             return User.objects.get(pk=pk)
         except User.DoesNotExist:
-            raise Http404
+            raise Http404("User does not exist")
 
     def get(self, request, pk, format=None):
         user = self.get_object(pk)
         following = user.friendship_creator_set.all()
-        data = serializers.serialize('json', list(following), fields=('created', 'creator','following'))
+        data = serializers.serialize('json', list(following), fields=('created', 'creator', 'following'))
         return Response(json.loads(data))
 
     def post(self, request, pk, format=None):
@@ -194,8 +194,8 @@ class UserFollowingView(APIView):
             f.save()
             serializer = FollowingSerializer(f)
             return Response(serializer.data)
-        else:
-            return Response('Error: Unable to find either user or POST link data', status=HTTP_400_BAD_REQUEST)
+
+        return Response('Error: Unable to find either user or POST link data', status=HTTP_400_BAD_REQUEST)
 
 users_following_view = UserFollowingView.as_view()
 
@@ -205,7 +205,7 @@ class UserCollectionsView(APIView):
         try:
             return User.objects.get(pk=pk)
         except User.DoesNotExist:
-            raise Http404
+            raise Http404("User does not exist")
 
     def get(self, request, pk, format=None):
         user = self.get_object(pk)
@@ -217,8 +217,8 @@ users_collections_view = UserCollectionsView.as_view()
 
 
 class TopicView(APIView):
-    def post(self, request, format=None):
-        topic_name = request.data['topic_name']
+    def get(self, request, topic_name, format=None):
+        # topic_name = request.data['topic_name']
         collections = Topic.objects.filter(name__iexact=topic_name).values_list('collection', flat=True)
 
         cList = []
@@ -251,13 +251,13 @@ class CreateTopicView(APIView):
 
         if not existSet:
             print("Topic {} does not exist yet. Creating...".format(topic_name))
-            topic =  Topic(name=topic_name, collection=collection)
+            topic = Topic(name=topic_name, collection=collection)
             topic.save()
             return Response(status=HTTP_200_OK)
-        else:
-            return Response({'Error': "Topic already exists for this collection!"}, status=HTTP_500_INTERNAL_SERVER_ERROR)
 
-create_topic_view =  CreateTopicView.as_view()
+        return Response({'Error': "Topic already exists for this collection!"}, status=HTTP_500_INTERNAL_SERVER_ERROR)
+
+create_topic_view = CreateTopicView.as_view()
 
 
 class SearchTopicsView(APIView):
@@ -265,14 +265,14 @@ class SearchTopicsView(APIView):
         query = request.data['query']
         return Response(searchTopic(query))
 
-search_topics_view =  SearchTopicsView.as_view()
+search_topics_view = SearchTopicsView.as_view()
 
 
 class AllTopicsView(APIView):
     def get(self, request, format=None):
         return Response(searchTopic(""))
 
-all_topics_view =  AllTopicsView.as_view()
+all_topics_view = AllTopicsView.as_view()
 
 
 # Returns collection information based on id
@@ -281,7 +281,7 @@ class CollectionView(APIView):
         try:
             return Collection.objects.get(pk=pk)
         except Collection.DoesNotExist:
-            raise Http404
+            raise Http404("User does not exist")
 
     def get(self, request, pk, format=None):
         collection = self.get_object(pk)
@@ -292,7 +292,7 @@ class CollectionView(APIView):
         data = {}
         data["collectionInfo"] = cs.data
         data["links"] = list(links)
-        data["topics"] =  list(topics)
+        data["topics"] = list(topics)
 
         return Response(data)
 
@@ -481,7 +481,6 @@ class Login(APIView):
             password = request.data['password']
             auth_user = authenticate(request, username=username, password=password)
         except Exception as e:
-            print(e.detail)
             return error_resp
 
         if auth_user is not None:
@@ -490,7 +489,6 @@ class Login(APIView):
                 serialized_user = UserSerializer(auth_user, context=serializer_context)
                 return Response(serialized_user.data, status=200)
             except Exception as e:
-                print(e.detail)
                 return error_resp
         else:
             return error_resp
@@ -530,7 +528,6 @@ class SignUp(APIView):
 
             return Response(serialized_user.data)
         except Exception as e:
-            print (e.message)
             return Response({'detail': 'Server error occured on signup'})
 
 signup_view = SignUp.as_view()

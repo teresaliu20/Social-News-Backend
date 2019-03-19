@@ -43,11 +43,11 @@ urlpatterns = [
     url(r'^collections/edit', edit_collection_view, name='editcollection'),
     url(r'^collections/(?P<pk>[0-9]+)', collection_view, name='collectioninfo'),
     url(r'^collections/search', search_collections_view, name='searchcollections'),
-    url(r'^collections/create', collection_view, name='collectioninfo'),
+    url(r'^collections', collection_view, name='collectioninfo'),
+    url(r'^topic/(?P<topic_name>[a-zA-Z0-9 !^&()_+\-=\[\]{}\':"\\|,.\/?]+)', topic_view, name='topiccollections'),
     url(r'^topics/search', search_topics_view, name='searchtopics'),
     url(r'^topics/all', all_topics_view, name='alltopics'),
-    url(r'^topics/create', create_topic_view, name='alltopics'),
-    url(r'^topic', topic_view, name='topiccollections')
+    url(r'^topics/create', create_topic_view, name='alltopics')
 ]
 
 urlpatterns = format_suffix_patterns(urlpatterns)

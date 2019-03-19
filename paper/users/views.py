@@ -2,7 +2,7 @@ from django.contrib.auth import get_user_model, login, logout, authenticate
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.db.models import Q
 from django.urls import reverse
-from django.http import JsonResponse
+from django.http import JsonResponse, Http404
 from rest_framework.views import APIView
 from rest_framework.status import HTTP_400_BAD_REQUEST, HTTP_200_OK, HTTP_204_NO_CONTENT, HTTP_500_INTERNAL_SERVER_ERROR
 from django.views.generic import DetailView, ListView, RedirectView, UpdateView
@@ -12,6 +12,7 @@ from .serializers import LinkSerializer, UserSerializer, FollowingSerializer, Co
 from django.core import serializers
 from django.core.serializers.json import DjangoJSONEncoder
 import json
+
 
 User = get_user_model()
 
@@ -61,6 +62,7 @@ class UserRedirectView(LoginRequiredMixin, RedirectView):
 
 user_redirect_view = UserRedirectView.as_view()
 
+
 class UserInformationView(APIView):
     def post(self, request, format=None):
         user_id = request.data["user_id"]
@@ -80,6 +82,7 @@ class UserInformationView(APIView):
         return Response(data)
 
 user_information_view = UserInformationView.as_view()
+
 
 # Edit user profile
 class EditUserView(APIView):
@@ -106,6 +109,7 @@ class EditUserView(APIView):
 
 edit_user_view = EditUserView.as_view()
 
+
 # Returns users in database that match a prefix search of username, first name, full name, and email
 class SearchUsersView(APIView):
     def post(self, request, format=None):
@@ -124,6 +128,7 @@ class SearchUsersView(APIView):
 
 search_users_view = SearchUsersView.as_view()
 
+
 # Returns collections in database that match a given name query
 class SearchCollectionsView(APIView):
     def post(self, request, format=None):
@@ -136,6 +141,7 @@ class SearchCollectionsView(APIView):
         return Response({"collections" : data})
 
 search_collections_view = SearchCollectionsView.as_view()
+
 
 # Returns all links in user's reading list, adds new link into reading list, and deletes link from reading list
 class UserReadingListView(APIView):
@@ -169,6 +175,7 @@ class UserReadingListView(APIView):
 
 user_reading_list_view = UserReadingListView.as_view()
 
+
 # Returns all the people a specific user is following
 class UserFollowingView(APIView):
     def get_object(self, pk):
@@ -198,6 +205,7 @@ class UserFollowingView(APIView):
             return Response('Error: Unable to find either user or POST link data', status=HTTP_400_BAD_REQUEST)
 
 users_following_view = UserFollowingView.as_view()
+
 
 # Returns the collections that a specific user has made
 class UserCollectionsView(APIView):
@@ -251,13 +259,13 @@ class CreateTopicView(APIView):
 
         if not existSet:
             print("Topic {} does not exist yet. Creating...".format(topic_name))
-            topic =  Topic(name=topic_name, collection=collection)
+            topic = Topic(name=topic_name, collection=collection)
             topic.save()
             return Response(status=HTTP_200_OK)
         else:
             return Response({'Error': "Topic already exists for this collection!"}, status=HTTP_500_INTERNAL_SERVER_ERROR)
 
-create_topic_view =  CreateTopicView.as_view()
+create_topic_view = CreateTopicView.as_view()
 
 
 class SearchTopicsView(APIView):
@@ -265,14 +273,14 @@ class SearchTopicsView(APIView):
         query = request.data['query']
         return Response(searchTopic(query))
 
-search_topics_view =  SearchTopicsView.as_view()
+search_topics_view = SearchTopicsView.as_view()
 
 
 class AllTopicsView(APIView):
     def get(self, request, format=None):
         return Response(searchTopic(""))
 
-all_topics_view =  AllTopicsView.as_view()
+all_topics_view = AllTopicsView.as_view()
 
 
 # Returns collection information based on id
@@ -292,7 +300,7 @@ class CollectionView(APIView):
         data = {}
         data["collectionInfo"] = cs.data
         data["links"] = list(links)
-        data["topics"] =  list(topics)
+        data["topics"] = list(topics)
 
         return Response(data)
 
@@ -342,6 +350,7 @@ class CollectionView(APIView):
         return Response(status=HTTP_200_OK)
 
 collection_view = CollectionView.as_view()
+
 
 # Returns collection information based on id
 class EditCollectionView(APIView):
@@ -404,6 +413,7 @@ class EditCollectionView(APIView):
 
 edit_collection_view = EditCollectionView.as_view()
 
+
 # Returns all collections that are connected to the one requested based on id
 class CollectionConnectedView(APIView):
     def get_object(self, pk):
@@ -433,6 +443,7 @@ class CollectionConnectedView(APIView):
         return Response(data)
 
 collection_connected_view = CollectionConnectedView.as_view()
+
 
 # Returns all collections that are connected to the one requested based on id
 class CollectionRelationshipView(APIView):
@@ -534,6 +545,7 @@ class SignUp(APIView):
             return Response({'detail': 'Server error occured on signup'})
 
 signup_view = SignUp.as_view()
+
 
 # Should move to its own file — here for now
 def searchTopic(query):

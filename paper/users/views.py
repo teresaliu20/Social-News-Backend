@@ -13,6 +13,7 @@ from rest_framework.response import Response
 from .models import Link, Following, Collection, CollectionRelationship, Topic
 from .serializers import LinkSerializer, UserSerializer, FollowingSerializer, CollectionSerializer, CollectionRelationshipSerializer, TopicSerializer
 
+
 User = get_user_model()
 
 
@@ -61,6 +62,7 @@ class UserRedirectView(LoginRequiredMixin, RedirectView):
 
 user_redirect_view = UserRedirectView.as_view()
 
+
 class UserInformationView(APIView):
     def post(self, request, format=None):
         user_id = request.data["user_id"]
@@ -80,6 +82,7 @@ class UserInformationView(APIView):
         return Response(data)
 
 user_information_view = UserInformationView.as_view()
+
 
 # Edit user profile
 class EditUserView(APIView):
@@ -106,6 +109,7 @@ class EditUserView(APIView):
 
 edit_user_view = EditUserView.as_view()
 
+
 # Returns users in database that match a prefix search of username, first name, full name, and email
 class SearchUsersView(APIView):
     def post(self, request, format=None):
@@ -124,6 +128,7 @@ class SearchUsersView(APIView):
 
 search_users_view = SearchUsersView.as_view()
 
+
 # Returns collections in database that match a given name query
 class SearchCollectionsView(APIView):
     def post(self, request, format=None):
@@ -136,6 +141,7 @@ class SearchCollectionsView(APIView):
         return Response({"collections" : data})
 
 search_collections_view = SearchCollectionsView.as_view()
+
 
 # Returns all links in user's reading list, adds new link into reading list, and deletes link from reading list
 class UserReadingListView(APIView):
@@ -169,6 +175,7 @@ class UserReadingListView(APIView):
 
 user_reading_list_view = UserReadingListView.as_view()
 
+
 # Returns all the people a specific user is following
 class UserFollowingView(APIView):
     def get_object(self, pk):
@@ -198,6 +205,7 @@ class UserFollowingView(APIView):
         return Response('Error: Unable to find either user or POST link data', status=HTTP_400_BAD_REQUEST)
 
 users_following_view = UserFollowingView.as_view()
+
 
 # Returns the collections that a specific user has made
 class UserCollectionsView(APIView):
@@ -343,6 +351,7 @@ class CollectionView(APIView):
 
 collection_view = CollectionView.as_view()
 
+
 # Returns collection information based on id
 class EditCollectionView(APIView):
     def get_object(self, pk):
@@ -404,6 +413,7 @@ class EditCollectionView(APIView):
 
 edit_collection_view = EditCollectionView.as_view()
 
+
 # Returns all collections that are connected to the one requested based on id
 class CollectionConnectedView(APIView):
     def get_object(self, pk):
@@ -433,6 +443,7 @@ class CollectionConnectedView(APIView):
         return Response(data)
 
 collection_connected_view = CollectionConnectedView.as_view()
+
 
 # Returns all collections that are connected to the one requested based on id
 class CollectionRelationshipView(APIView):
@@ -531,6 +542,7 @@ class SignUp(APIView):
             return Response({'detail': 'Server error occured on signup'})
 
 signup_view = SignUp.as_view()
+
 
 # Should move to its own file — here for now
 def searchTopic(query):

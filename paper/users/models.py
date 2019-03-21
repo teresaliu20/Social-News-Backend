@@ -1,9 +1,13 @@
+import sys
+from io import BytesIO
+import base64
+import PIL
 from django.contrib.auth.models import AbstractUser
 from django.db import models
 from django.urls import reverse
 from django.utils.translation import ugettext_lazy as _
+from django.core.files.uploadedfile import InMemoryUploadedFile
 from .enums import Relationship
-
 
 class User(AbstractUser):
 
@@ -11,6 +15,7 @@ class User(AbstractUser):
     # around the globe.
     name = models.CharField(_("Name of User"), blank=True, max_length=255)
     bio = models.CharField(_("Bio of User"), max_length=280, blank=True, null=True)
+    image = models.ImageField(upload_to='profile_image', blank=True, null=True)
     linksProposed = models.IntegerField(default=0)
     linksAccepted = models.IntegerField(default=0)
 
@@ -26,7 +31,7 @@ class Following(models.Model):
 
 class Collection(models.Model):
     created = models.DateTimeField(auto_now_add=True, editable=False)
-    owner = models.ForeignKey(User, on_delete=models.CASCADE)
+    author = models.ForeignKey(User, on_delete=models.CASCADE)
     name = models.CharField(blank=True, max_length=255)
     description = models.CharField(blank=True, max_length=3000)
 
@@ -36,7 +41,7 @@ class Collection(models.Model):
 
 class Topic(models.Model):
     created = models.DateTimeField(auto_now_add=True, editable=False)
-    name =  models.CharField(blank=True, max_length=255)
+    name = models.CharField(blank=True, max_length=255)
     collection = models.ForeignKey(Collection, blank=True, null=True, related_name="tag_set", on_delete=models.CASCADE)
 
 

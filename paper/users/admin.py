@@ -12,7 +12,7 @@ class UserAdmin(auth_admin.UserAdmin):
 
     form = UserChangeForm
     add_form = UserCreationForm
-    fieldsets = (("User", {"fields": ("name", "bio", "linksProposed", "linksAccepted")}),) + auth_admin.UserAdmin.fieldsets
+    fieldsets = (("User", {"fields": ("name", "bio", "image", "linksProposed", "linksAccepted")}),) + auth_admin.UserAdmin.fieldsets
     list_display = ["username", "name", "bio", "is_superuser"]
     search_fields = ["name"]
 
@@ -26,7 +26,7 @@ class LinkAdmin(admin.ModelAdmin):
 
 
 class CollectionAdmin(admin.ModelAdmin):
-    list_display = ('id', 'created', 'owner', 'name')
+    list_display = ('id', 'created', 'author', 'name')
 
 
 class CollectionRelationshipAdmin(admin.ModelAdmin):

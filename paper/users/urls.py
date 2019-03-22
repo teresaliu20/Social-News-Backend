@@ -9,6 +9,7 @@ from rest_framework.urlpatterns import format_suffix_patterns
 # user_detail_view,
 from paper.users.views import (
     user_information_view,
+    user_picture_view,
     edit_user_view,
     search_users_view,
     search_collections_view,
@@ -34,6 +35,7 @@ urlpatterns = [
     path("logout", view=logout_view, name='userslogout'),
     url(r'^users/(?P<pk>[0-9]+)/collections', users_collections_view, name='usercollections'),
     url(r'^users/(?P<pk>[0-9]+)/reading-list', user_reading_list_view, name='userreadinglist'),
+    url(r'^users/(?P<pk>[0-9]+)/profilepicture', user_picture_view, name='user-profile-picture'),
     url(r'^users/reading-list', user_reading_list_view, name='userreadinglist'),
     url(r'^users/edit', edit_user_view, name='edituser'),
     url(r'^users/search', search_users_view, name='searchuser'),

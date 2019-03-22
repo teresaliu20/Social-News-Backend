@@ -1,4 +1,5 @@
 import json
+import PIL
 from django.contrib.auth import get_user_model, login, logout, authenticate
 from django.contrib.auth.mixins import LoginRequiredMixin
 from django.db.models import Q
@@ -7,9 +8,11 @@ from django.http import JsonResponse, Http404
 from django.core import serializers
 from django.core.serializers.json import DjangoJSONEncoder
 from django.views.generic import DetailView, ListView, RedirectView, UpdateView
+from django.utils.text import get_valid_filename
 from rest_framework.views import APIView
 from rest_framework.status import HTTP_400_BAD_REQUEST, HTTP_200_OK, HTTP_204_NO_CONTENT, HTTP_500_INTERNAL_SERVER_ERROR
 from rest_framework.response import Response
+from rest_framework.parsers import JSONParser, FormParser, MultiPartParser
 from .models import Link, Following, Collection, CollectionRelationship, Topic
 from .serializers import LinkSerializer, UserSerializer, FollowingSerializer, CollectionSerializer, CollectionRelationshipSerializer, TopicSerializer
 
@@ -64,11 +67,18 @@ user_redirect_view = UserRedirectView.as_view()
 
 
 class UserInformationView(APIView):
+
+    def get_object(self, pk):
+        try:
+            return User.objects.get(pk=pk)
+        except User.DoesNotExist:
+            raise Http404("User does not exist")
+
     def post(self, request, format=None):
         user_id = request.data["user_id"]
         isLoggedInUser = request.data["isLoggedInUser"]
 
-        user = User.objects.get(pk=user_id)
+        user = self.get_object(pk=user_id)
         serializer = UserSerializer(user)
         data = serializer.data
 
@@ -217,11 +227,42 @@ class UserCollectionsView(APIView):
 
     def get(self, request, pk, format=None):
         user = self.get_object(pk)
-        collections = Collection.objects.filter(owner=user).values('created', 'owner', 'name', 'description', 'id')
+        collections = Collection.objects.filter(author=user).values('created', 'author', 'name', 'description', 'id')
 
         return Response({'collections': list(collections)})
 
 users_collections_view = UserCollectionsView.as_view()
+
+
+class UserPictureView(APIView):
+    parser_classes = (MultiPartParser, FormParser, )
+
+    def get_object(self, pk):
+        try:
+            return User.objects.get(pk=pk)
+        except User.DoesNotExist:
+            raise Http404
+
+    def post(self, request, pk, format=None):
+        user = self.get_object(pk)
+        image_file = self.request.data.get('image')
+
+        user.image = image_file
+        user.save()
+
+        serializer = UserSerializer(user)
+        return Response(serializer.data)
+
+    # Test Route to open the current user's image and see url of current image
+    def get(self, request, pk, format=None):
+        user = self.get_object(pk)
+
+        pre_im = PIL.Image.open(user.image)
+        pre_im.show()
+
+        return Response({"image url: " : str(user.image)})
+
+user_picture_view = UserPictureView.as_view()
 
 
 class TopicView(APIView):
@@ -231,7 +272,7 @@ class TopicView(APIView):
 
         cList = []
         for collection in collections:
-            cList += Collection.objects.filter(pk=collection).values('created', 'owner', 'name', 'description', 'id')
+            cList += Collection.objects.filter(pk=collection).values('created', 'author', 'name', 'description', 'id')
 
         return Response({'collections': cList})
 
@@ -313,7 +354,7 @@ class CollectionView(APIView):
 
         owner = User.objects.get(pk=owner_id)
 
-        collection = Collection(owner=owner, name=name, description=description)
+        collection = Collection(author=owner, name=name, description=description)
         collection.save()
 
         data = {}
@@ -544,7 +585,7 @@ class SignUp(APIView):
 signup_view = SignUp.as_view()
 
 
-# Should move to its own file — here for now
+# Should move to their own files — here for now
 def searchTopic(query):
     if not query:
         return Topic.objects.values_list('name', flat=True).distinct()

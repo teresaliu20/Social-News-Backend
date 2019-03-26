@@ -144,7 +144,7 @@ class SearchCollectionsView(APIView):
     def post(self, request, format=None):
         query = request.data["query"]
 
-        search = Collection.objects.filter(name__istartswith=query).values('id', 'name', 'description')
+        search = Collection.objects.filter(name__icontains=query).values('id', 'name', 'description')
 
         data = list(search)
 
@@ -227,9 +227,9 @@ class UserCollectionsView(APIView):
 
     def get(self, request, pk, format=None):
         user = self.get_object(pk)
-        collections = Collection.objects.filter(author=user).values('created', 'author', 'name', 'description', 'id')
+        collections = Collection.objects.filter(author=user).values('created', 'name', 'description', 'id')
 
-        return Response({'collections': list(collections)})
+        return Response({'author_username': user.username, 'author_first': user.first_name, 'author_last': user.last_name, 'author_name': user.name, 'collections': list(collections)})
 
 users_collections_view = UserCollectionsView.as_view()
 

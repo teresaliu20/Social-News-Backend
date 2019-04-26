@@ -14,7 +14,8 @@ from rest_framework.status import HTTP_400_BAD_REQUEST, HTTP_200_OK, HTTP_204_NO
 from rest_framework.response import Response
 from rest_framework.parsers import JSONParser, FormParser, MultiPartParser
 from .models import Link, Following, Collection, CollectionRelationship, Topic
-from .serializers import LinkSerializer, UserSerializer, FollowingSerializer, CollectionSerializer, CollectionRelationshipSerializer, TopicSerializer
+from .serializers import LinkSerializer, UserSerializer, UserPartSerializer, FollowingSerializer, CollectionSerializer, CollectionRelationshipSerializer, TopicSerializer
+from .enums import Relationship, CollectionPermission
 
 
 User = get_user_model()
@@ -68,7 +69,7 @@ user_redirect_view = UserRedirectView.as_view()
 
 class UserInformationView(APIView):
 
-    def get_object(self, pk):
+    def get_User(self, pk):
         try:
             return User.objects.get(pk=pk)
         except User.DoesNotExist:
@@ -78,7 +79,7 @@ class UserInformationView(APIView):
         user_id = request.data["user_id"]
         isLoggedInUser = request.data["isLoggedInUser"]
 
-        user = self.get_object(pk=user_id)
+        user = self.get_User(pk=user_id)
         serializer = UserSerializer(user)
         data = serializer.data
 
@@ -144,7 +145,10 @@ class SearchCollectionsView(APIView):
     def post(self, request, format=None):
         query = request.data["query"]
 
-        search = Collection.objects.filter(name__istartswith=query).values('id', 'name', 'description')
+        name_query = Q(name__istartswith=query)
+        public_privacy_query = Q(permission='Public')
+
+        search = Collection.objects.filter(name_query, public_privacy_query).values('id', 'name', 'description', 'permission')
 
         data = list(search)
 
@@ -160,7 +164,7 @@ class UserReadingListView(APIView):
         user_filter = Q(owner_id=pk)
         reading_list_filter = Q(inReadingList=True)
 
-        reading_list = Link.objects.filter(user_filter, reading_list_filter).values('id', 'created', 'owner', 'url', 'collection')
+        reading_list = Link.objects.filter(user_filter, reading_list_filter).values('id', 'created', 'owner', 'url', 'collection', 'description')
 
         return Response(list(reading_list))
 
@@ -188,25 +192,49 @@ user_reading_list_view = UserReadingListView.as_view()
 
 # Returns all the people a specific user is following
 class UserFollowingView(APIView):
-    def get_object(self, pk):
+    def get_User(self, pk):
         try:
             return User.objects.get(pk=pk)
         except User.DoesNotExist:
             raise Http404("User does not exist")
 
+    def get_Following(self, follower, followee):
+        creator_filter = Q(creator_id=follower)
+        following_filter = Q(following=followee)
+
+        return Following.objects.filter(creator_filter, following_filter)
+
     def get(self, request, pk, format=None):
-        user = self.get_object(pk)
-        following = user.friendship_creator_set.all()
-        data = serializers.serialize('json', list(following), fields=('created', 'creator', 'following'))
-        return Response(json.loads(data))
+        user = self.get_User(pk)
+        following = user.friendship_creator_set.values('following')
+        following_list = list(following)
+
+        data = []
+        for single_user in following_list:
+            following_id = single_user["following"]
+            user_data = User.objects.filter(pk=following_id).values('id', 'username', 'first_name', 'last_name', 'name', 'image')
+            collection_count = Collection.objects.filter(author=following_id).count()
+            print("collection count is: {}".format(collection_count))
+
+            serialized_user_data = list(user_data)
+
+            print(serialized_user_data)
+            serialized_user_data[0]["collection_count"] = collection_count
+
+            data += serialized_user_data
+
+        return Response(data)
 
     def post(self, request, pk, format=None):
-        user = self.get_object(pk)
-        following_id = self.request.data.get('user_id')
-        print(self.request.data.get('user_id'))
+        user = self.get_User(pk)
+        following_id = request.data['user_id']
 
         if user and following_id:
             followingUser = User.objects.get(pk=following_id)
+
+            if(self.get_Following(pk, following_id)):
+                return Response('Error: Following already exists!', status=HTTP_400_BAD_REQUEST)
+
             f = Following(creator=user, following=followingUser)
             f.save()
             serializer = FollowingSerializer(f)
@@ -214,22 +242,30 @@ class UserFollowingView(APIView):
 
         return Response('Error: Unable to find either user or POST link data', status=HTTP_400_BAD_REQUEST)
 
+    def delete(self, request, pk, format=None):
+        following_id = request.data['user_id']
+
+        self.get_Following(pk, following_id).delete()
+
+        return Response(status=HTTP_200_OK)
+
+
 users_following_view = UserFollowingView.as_view()
 
 
 # Returns the collections that a specific user has made
 class UserCollectionsView(APIView):
-    def get_object(self, pk):
+    def get_User(self, pk):
         try:
             return User.objects.get(pk=pk)
         except User.DoesNotExist:
             raise Http404("User does not exist")
 
     def get(self, request, pk, format=None):
-        user = self.get_object(pk)
-        collections = Collection.objects.filter(author=user).values('created', 'author', 'name', 'description', 'id')
+        user = self.get_User(pk)
+        collections = Collection.objects.filter(author=user).values('created', 'name', 'description', 'id', 'permission')
 
-        return Response({'collections': list(collections)})
+        return Response({'author_username': user.username, 'author_first': user.first_name, 'author_last': user.last_name, 'author_name': user.name, 'collections': list(collections)})
 
 users_collections_view = UserCollectionsView.as_view()
 
@@ -237,14 +273,14 @@ users_collections_view = UserCollectionsView.as_view()
 class UserPictureView(APIView):
     parser_classes = (MultiPartParser, FormParser, )
 
-    def get_object(self, pk):
+    def get_User(self, pk):
         try:
             return User.objects.get(pk=pk)
         except User.DoesNotExist:
             raise Http404
 
     def post(self, request, pk, format=None):
-        user = self.get_object(pk)
+        user = self.get_User(pk)
         image_file = self.request.data.get('image')
 
         user.image = image_file
@@ -255,7 +291,7 @@ class UserPictureView(APIView):
 
     # Test Route to open the current user's image and see url of current image
     def get(self, request, pk, format=None):
-        user = self.get_object(pk)
+        user = self.get_User(pk)
 
         pre_im = PIL.Image.open(user.image)
         pre_im.show()
@@ -272,7 +308,7 @@ class TopicView(APIView):
 
         cList = []
         for collection in collections:
-            cList += Collection.objects.filter(pk=collection).values('created', 'author', 'name', 'description', 'id')
+            cList += Collection.objects.filter(pk=collection).values('created', 'author', 'name', 'description', 'id', 'permission')
 
         return Response({'collections': cList})
 
@@ -326,16 +362,16 @@ all_topics_view = AllTopicsView.as_view()
 
 # Returns collection information based on id
 class CollectionView(APIView):
-    def get_object(self, pk):
+    def get_User(self, pk):
         try:
             return Collection.objects.get(pk=pk)
         except Collection.DoesNotExist:
             raise Http404("User does not exist")
 
     def get(self, request, pk, format=None):
-        collection = self.get_object(pk)
+        collection = self.get_User(pk)
         cs = CollectionSerializer(collection)
-        links = Link.objects.filter(collection=collection).values('created', 'owner', 'url', 'collection')
+        links = Link.objects.filter(collection=collection).values('created', 'owner', 'url', 'collection', 'description')
         topics = Topic.objects.filter(collection=collection).values_list('name', flat=True)
 
         data = {}
@@ -351,11 +387,15 @@ class CollectionView(APIView):
         description = request.data['description']
         urls = request.data['links']
         topics = request.data['topics']
+        # permission = request.data['permission']
 
         owner = User.objects.get(pk=owner_id)
 
-        collection = Collection(author=owner, name=name, description=description)
+        collection = Collection(author=owner, name=name, description=description, permission="Public")
         collection.save()
+
+        # if permission not in CollectionPermission.__members__:
+        #     return Response('Error: Collection permission not valid.', status=HTTP_400_BAD_REQUEST)
 
         data = {}
         data["collectionInfo"] = CollectionSerializer(collection).data
@@ -395,7 +435,7 @@ collection_view = CollectionView.as_view()
 
 # Returns collection information based on id
 class EditCollectionView(APIView):
-    def get_object(self, pk):
+    def get_User(self, pk):
         try:
             return Collection.objects.get(pk=pk)
         except Collection.DoesNotExist:
@@ -408,10 +448,21 @@ class EditCollectionView(APIView):
         description = request.data['description']
         urls = request.data['links']
         topics = request.data['topics']
+        # permission = request.data['permission']
+
+        id_filter = Q(id=collection_id)
+        author_filter = Q(author=owner_id)
+
+        if not Collection.objects.filter(id_filter, author_filter):
+            return Response('Error: Collection does not exist for specified user.', status=HTTP_400_BAD_REQUEST)
+
+        # if permission not in CollectionPermission.__members__:
+        #     return Response('Error: Collection permission not valid.', status=HTTP_400_BAD_REQUEST)
 
         collection = Collection.objects.get(pk=collection_id)
         collection.name = name
         collection.description = description
+        # collection.permission = permission
 
         collection.save()
 
@@ -454,17 +505,53 @@ class EditCollectionView(APIView):
 
 edit_collection_view = EditCollectionView.as_view()
 
+# Add or delete link from collection
+class LinkView(APIView):
+    def linkExists(self, userId, collectionId, url):
+        return Link.objects.filter(owner__id=userId, collection__id=collectionId, url=url)
+
+    def post(self, request, format=None):
+        user_id = request.data['user_id']
+        collection_id = request.data['collection_id']
+        url = request.data['url']
+
+        targetCollection = Collection.objects.get(pk=collection_id)
+        owner = User.objects.get(pk=user_id)
+
+        if self.linkExists(user_id, collection_id, url):
+            return Response({'detail': 'Link already exists in collection!'}, status=HTTP_400_BAD_REQUEST)
+
+        newLink = Link(owner=owner, url=url, collection=targetCollection)
+
+        newLink.save()
+
+        newCollectionLinks = Link.objects.filter(owner__id=user_id, collection__id=collection_id).values()
+
+        return Response(newCollectionLinks)
+
+    def delete(self, request, format=None):
+        user_id = request.data['user_id']
+        collection_id = request.data['collection_id']
+        url = request.data['url']
+
+        toDelete = Link.objects.filter(owner__id=user_id, collection__id=collection_id, url=url)
+
+        toDelete.delete()
+
+        return Response(status=HTTP_200_OK)
+
+link_view = LinkView.as_view()
 
 # Returns all collections that are connected to the one requested based on id
 class CollectionConnectedView(APIView):
-    def get_object(self, pk):
+    def get_User(self, pk):
         try:
             return Collection.objects.get(pk=pk)
         except Collection.DoesNotExist:
             raise Http404
 
     def get(self, request, pk, format=None):
-        collection = self.get_object(pk)
+        collection = self.get_User(pk)
 
         connections = CollectionRelationship.objects.filter(start=collection)
 
@@ -488,7 +575,7 @@ collection_connected_view = CollectionConnectedView.as_view()
 
 # Returns all collections that are connected to the one requested based on id
 class CollectionRelationshipView(APIView):
-    def get_object(self, pk):
+    def get_User(self, pk):
         try:
             return Collection.objects.get(pk=pk)
         except Collection.DoesNotExist:
@@ -499,8 +586,11 @@ class CollectionRelationshipView(APIView):
         collection_id2 = request.data['collectionTo']
         relation = request.data['relationship']
 
-        collectionFrom = self.get_object(collection_id)
-        collectionTo = self.get_object(collection_id2)
+        collectionFrom = self.get_User(collection_id)
+        collectionTo = self.get_User(collection_id2)
+
+        if relation not in Relationship.__members__:
+            return Response({'detail': 'Error: Collection relationship not valid.'}, status=HTTP_400_BAD_REQUEST)
 
         cr = CollectionRelationship(start=collectionFrom, end=collectionTo, relationship=relation, approved=False)
 

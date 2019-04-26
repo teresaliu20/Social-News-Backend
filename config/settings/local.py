@@ -69,5 +69,4 @@ CORS_ORIGIN_WHITELIST = (
     'localhost:3000',
     'localhost:3100',
     'localhost:19002'
-    'chrome-extension://pjmijbmdcgffacinkhlpedbjaoikdhej',
 )

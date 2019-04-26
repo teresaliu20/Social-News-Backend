@@ -214,6 +214,5 @@ RAVEN_CONFIG = {
 # Your stuff...
 # ------------------------------------------------------------------------------
 CORS_ORIGIN_WHITELIST = (
-    'https://paper-puzzle.now.sh/',
-    'chrome-extension://pjmijbmdcgffacinkhlpedbjaoikdhej',
+    'https://paper-puzzle.now.sh/'
 )

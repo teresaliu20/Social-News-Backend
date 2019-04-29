@@ -227,7 +227,7 @@ class UserFollowingView(APIView):
 
     def post(self, request, pk, format=None):
         user = self.get_User(pk)
-        following_id = request.data['user_id']
+        following_id = request.data['following_id']
 
         if user and following_id:
             followingUser = User.objects.get(pk=following_id)
@@ -243,7 +243,7 @@ class UserFollowingView(APIView):
         return Response('Error: Unable to find either user or POST link data', status=HTTP_400_BAD_REQUEST)
 
     def delete(self, request, pk, format=None):
-        following_id = request.data['user_id']
+        following_id = request.data['delete_id']
 
         self.get_Following(pk, following_id).delete()
 
@@ -251,6 +251,36 @@ class UserFollowingView(APIView):
 
 
 users_following_view = UserFollowingView.as_view()
+
+
+# Returns all the followers of a user
+class UserFollowersView(APIView):
+    def get_User(self, pk):
+        try:
+            return User.objects.filter(pk=pk)
+        except User.DoesNotExist:
+            raise Http404("User does not exist")
+
+    def get(self, request, pk, format=None):
+        user = self.get_User(pk)
+
+        following = Following.objects.filter(following_id=pk).values()
+
+        data = []
+        for relationship in following:
+            follower = self.get_User(relationship['creator_id']).values('id', 'username', 'first_name', 'last_name', 'name', 'image')
+
+            collection_count = Collection.objects.filter(author=relationship['creator_id']).count()
+
+            serialized_user_data = list(follower)
+            serialized_user_data[0]["collection_count"] = collection_count
+
+            data += serialized_user_data
+
+        return Response(data)
+
+
+users_followers_view = UserFollowersView.as_view()
 
 
 # Returns the collections that a specific user has made
@@ -304,7 +334,7 @@ user_picture_view = UserPictureView.as_view()
 class TopicView(APIView):
     def get(self, request, topic_name, format=None):
         # topic_name = request.data['topic_name']
-        collections = Topic.objects.filter(name__iexact=topic_name).values_list('collection', flat=True)
+        collections = Topic.objects.filter(name__iexact=topic_name, collection__permission="Public").values_list('collection', flat=True)
 
         cList = []
         for collection in collections:
@@ -387,15 +417,15 @@ class CollectionView(APIView):
         description = request.data['description']
         urls = request.data['links']
         topics = request.data['topics']
-        # permission = request.data['permission']
+        permission = request.data['permission']
 
         owner = User.objects.get(pk=owner_id)
 
-        collection = Collection(author=owner, name=name, description=description, permission="Public")
+        collection = Collection(author=owner, name=name, description=description, permission=permission)
         collection.save()
 
-        # if permission not in CollectionPermission.__members__:
-        #     return Response('Error: Collection permission not valid.', status=HTTP_400_BAD_REQUEST)
+        if permission not in CollectionPermission.__members__:
+            return Response('Error: Collection permission not valid.', status=HTTP_400_BAD_REQUEST)
 
         data = {}
         data["collectionInfo"] = CollectionSerializer(collection).data
@@ -448,7 +478,7 @@ class EditCollectionView(APIView):
         description = request.data['description']
         urls = request.data['links']
         topics = request.data['topics']
-        # permission = request.data['permission']
+        permission = request.data['permission']
 
         id_filter = Q(id=collection_id)
         author_filter = Q(author=owner_id)
@@ -456,13 +486,13 @@ class EditCollectionView(APIView):
         if not Collection.objects.filter(id_filter, author_filter):
             return Response('Error: Collection does not exist for specified user.', status=HTTP_400_BAD_REQUEST)
 
-        # if permission not in CollectionPermission.__members__:
-        #     return Response('Error: Collection permission not valid.', status=HTTP_400_BAD_REQUEST)
+        if permission not in CollectionPermission.__members__:
+            return Response('Error: Collection permission not valid.', status=HTTP_400_BAD_REQUEST)
 
         collection = Collection.objects.get(pk=collection_id)
         collection.name = name
         collection.description = description
-        # collection.permission = permission
+        collection.permission = permission
 
         collection.save()
 

@@ -421,11 +421,20 @@ class CollectionView(APIView):
 
         owner = User.objects.get(pk=owner_id)
 
-        collection = Collection(author=owner, name=name, description=description, permission=permission)
-        collection.save()
+        seenLinks = []
+        if urls:
+            for linkObj in urls:
+                if linkObj['url'] in seenLinks:
+                    return Response({'detail': 'No duplicate links allowed!'}, status=HTTP_400_BAD_REQUEST)
+
+                seenLinks.append(linkObj['url'])
 
         if permission not in CollectionPermission.__members__:
-            return Response('Error: Collection permission not valid.', status=HTTP_400_BAD_REQUEST)
+            return Response({'detail': 'Collection permission not valid!'}, status=HTTP_400_BAD_REQUEST)
+
+        # Create new collection object
+        collection = Collection(author=owner, name=name, description=description, permission=permission)
+        collection.save()
 
         data = {}
         data["collectionInfo"] = CollectionSerializer(collection).data
@@ -433,9 +442,12 @@ class CollectionView(APIView):
         links = []
         topicsRet = []
         if urls:
-            for url in urls:
-                tempLink = Link(owner=owner, url=url, collection=collection)
-                print("hi" + url)
+            for linkObj in urls:
+                print(linkObj["url"])
+                print(linkObj["description"])
+
+                tempLink = Link(owner=owner, url=linkObj["url"], collection=collection, description=linkObj["description"])
+                print("hi" + linkObj["url"])
                 tempLink.save()
                 links.append(LinkSerializer(tempLink).data)
 
@@ -444,7 +456,7 @@ class CollectionView(APIView):
                 print("topic: {}".format(topic))
                 tempTopic = Topic(name=topic, collection=collection)
                 tempTopic.save()
-                topicsRet.append(TopicSerializer(tempTopic).data)
+                topicsRet.append(topic)
 
         data["links"] = links
         data["topics"] = topicsRet
@@ -484,10 +496,18 @@ class EditCollectionView(APIView):
         author_filter = Q(author=owner_id)
 
         if not Collection.objects.filter(id_filter, author_filter):
-            return Response('Error: Collection does not exist for specified user.', status=HTTP_400_BAD_REQUEST)
+            return Response({'detail': 'Collection does not exist for specified user!'}, status=HTTP_400_BAD_REQUEST)
+
+        seenLinks = []
+        if urls:
+            for linkObj in urls:
+                if linkObj['url'] in seenLinks:
+                    return Response({'detail': 'No duplicate links allowed!'}, status=HTTP_400_BAD_REQUEST)
+
+                seenLinks.append(linkObj['url'])
 
         if permission not in CollectionPermission.__members__:
-            return Response('Error: Collection permission not valid.', status=HTTP_400_BAD_REQUEST)
+            return Response({'detail': 'Collection permission not valid!'}, status=HTTP_400_BAD_REQUEST)
 
         collection = Collection.objects.get(pk=collection_id)
         collection.name = name
@@ -509,9 +529,9 @@ class EditCollectionView(APIView):
 
         links = []
         # Re-add all links into DB
-        for url in urls:
-            print("Adding {} to db...".format(url))
-            newLink = Link(owner=owner, url=url, collection=collection)
+        for linkObj in urls:
+            print("Adding {} to db...".format(linkObj["url"]))
+            newLink = Link(owner=owner, url=linkObj["url"], collection=collection, description=linkObj["description"])
             newLink.save()
             links.append(LinkSerializer(newLink).data)
 
@@ -520,13 +540,14 @@ class EditCollectionView(APIView):
         if tempTopics:
             print("Deleting {} from db...".format(tempTopics.values()))
             tempTopics.delete()
+
         # Re-add all topics into DB
         topicsRet = []
         for topic in topics:
             print("Adding topic {}".format(topic))
             newTopic = Topic(name=topic, collection=collection)
             newTopic.save()
-            topicsRet.append(TopicSerializer(newTopic).data)
+            topicsRet.append(topic)
 
         data["links"] = links
         data["topics"] = topicsRet
@@ -543,21 +564,21 @@ class LinkView(APIView):
     def post(self, request, format=None):
         user_id = request.data['user_id']
         collection_id = request.data['collection_id']
-        url = request.data['url']
+        link = request.data['link']
 
         targetCollection = Collection.objects.get(pk=collection_id)
         owner = User.objects.get(pk=user_id)
 
-        if self.linkExists(user_id, collection_id, url):
+        if self.linkExists(user_id, collection_id, link['url']):
             return Response({'detail': 'Link already exists in collection!'}, status=HTTP_400_BAD_REQUEST)
 
-        newLink = Link(owner=owner, url=url, collection=targetCollection)
+        newLink = Link(owner=owner, url=link['url'], collection=targetCollection, description=link['description'])
 
         newLink.save()
 
-        newCollectionLinks = Link.objects.filter(owner__id=user_id, collection__id=collection_id).values()
+        newCollectionLinks = Link.objects.get(owner__id=user_id, collection__id=collection_id, url=link['url'])
 
-        return Response(newCollectionLinks)
+        return Response(LinkSerializer(newCollectionLinks).data)
 
     def delete(self, request, format=None):
         user_id = request.data['user_id']
@@ -571,6 +592,33 @@ class LinkView(APIView):
         return Response(status=HTTP_200_OK)
 
 link_view = LinkView.as_view()
+
+class EditLinkView(APIView):
+    def getLink(self, userId, collectionId, url):
+        return Link.objects.filter(owner__id=userId, collection__id=collectionId, url=url)
+
+    def post(self, request, format=None):
+        user_id = request.data['user_id']
+        collection_id = request.data['collection_id']
+        link = request.data['link']
+
+        targetCollection = Collection.objects.get(pk=collection_id)
+        owner = User.objects.get(pk=user_id)
+
+        if not self.getLink(user_id, collection_id, link['url']):
+            return Response({'detail': 'Link does not exist in collection!'}, status=HTTP_400_BAD_REQUEST)
+
+        currLink = self.getLink(user_id, collection_id, link['url'])[0]
+
+        currLink.description = link['description']
+
+        currLink.save()
+
+        newCollectionLinks = Link.objects.get(owner__id=user_id, collection__id=collection_id, url=link['url'])
+
+        return Response(LinkSerializer(newCollectionLinks).data)
+
+edit_link_view = EditLinkView.as_view()
 
 # Returns all collections that are connected to the one requested based on id
 class CollectionConnectedView(APIView):
@@ -620,7 +668,7 @@ class CollectionRelationshipView(APIView):
         collectionTo = self.get_User(collection_id2)
 
         if relation not in Relationship.__members__:
-            return Response({'detail': 'Error: Collection relationship not valid.'}, status=HTTP_400_BAD_REQUEST)
+            return Response({'detail': 'Collection relationship not valid.'}, status=HTTP_400_BAD_REQUEST)
 
         cr = CollectionRelationship(start=collectionFrom, end=collectionTo, relationship=relation, approved=False)
 

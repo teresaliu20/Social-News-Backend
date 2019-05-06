@@ -148,9 +148,13 @@ class SearchCollectionsView(APIView):
         name_query = Q(name__istartswith=query)
         public_privacy_query = Q(permission='Public')
 
-        search = Collection.objects.filter(name_query, public_privacy_query).values('id', 'name', 'description', 'permission')
+        search = Collection.objects.filter(name_query, public_privacy_query).values('id', 'name', 'author', 'description', 'permission')
 
         data = list(search)
+
+        for collection in data:
+            print(collection["author"])
+            collection["author"] = UserPartSerializer(User.objects.get(pk=collection["author"])).data
 
         return Response({"collections" : data})
 
@@ -338,7 +342,11 @@ class TopicView(APIView):
 
         cList = []
         for collection in collections:
-            cList += Collection.objects.filter(pk=collection).values('created', 'author', 'name', 'description', 'id', 'permission')
+            search = Collection.objects.filter(pk=collection).values('created', 'author', 'name', 'description', 'id', 'permission')
+            data = list(search)
+            data[0]["author"] = UserPartSerializer(User.objects.get(pk=data[0]["author"])).data
+            cList += data
+
 
         return Response({'collections': cList})
 
